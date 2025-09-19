@@ -1,67 +1,57 @@
-import pyodbc
-from datetime import datetime
 import pytz
+import pyodbc
 import random
+from datetime import datetime
 
 
 # ✅ Fungsi untuk mendapatkan waktu WIB
-
-
 def get_current_time_wib():
     wib = pytz.timezone("Asia/Jakarta")
     return datetime.now(pytz.utc).astimezone(wib).replace(tzinfo=None)
 
+
 # ✅ Fungsi koneksi ke SQL Server
-
-
 def get_connection():
     return pyodbc.connect(
         "Driver={ODBC Driver 17 for SQL Server};"
-        "Server=localhost;"
-        "Database=Dashboard_Automation_DB;"
-        "Trusted_Connection=yes;"
+        "Server=10.100.10.85;"
+        "Database=dbautomation_dev;"
+        "UID=user.dev;;"
+        "PWD=SelamatSiang#1234;"
     )
 
+
 # ✅ Generate ID unik (cek ke DB biar tidak duplikat)
-
-
 def generate_unique_id(prefix: str, execution_time, table_name: str, field_name: str, conn) -> str:
     mm_yy = execution_time.strftime('%m%y')
     cursor = conn.cursor()
-
     while True:
         rand = str(random.randint(1000, 9999))
         new_id = f"{prefix}{mm_yy}{rand}"
-
         cursor.execute(
             f"SELECT COUNT(*) FROM {table_name} WHERE {field_name} = ?", (new_id,))
         exists = cursor.fetchone()[0]
-
         if exists == 0:
             return new_id  # ✅ ID unik ditemukan
 
+
 # ✅ Fungsi utama untuk menyimpan hasil test
 # ================= Simpan Hasil Test =================
-
-
 def save_test_result_auto(data: dict):
     conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
-
         execution_time = get_current_time_wib()
         id_test_result_history = generate_unique_id(
             "PRJQATRHistory", execution_time, "test_result_history", "id_test_result_history", conn
         )
-
         # ================= Cek data di test_result =================
         cursor.execute("""
             SELECT id_test_result FROM test_result
             WHERE project_code = ? AND testcase_id = ? AND tester_name = ?
         """, (data["project_code"], data["testcase_id"], data["tester_name"]))
         existing = cursor.fetchone()
-
         if existing:
             # Update record lama (tanpa log_error)
             id_test_result = existing[0]
@@ -70,8 +60,7 @@ def save_test_result_auto(data: dict):
                 SET project_name = ?, project_type = ?, core_noncore = ?, 
                     module_name = ?, testcase_name = ?, jenis_test = ?, 
                     platform = ?, browser = ?, status = ?, execution_time = ?
-                WHERE id_test_result = ?
-            """, (
+                WHERE id_test_result = ? """, (
                 data["project_name"],
                 data["project_type"],
                 data["core_noncore"],
@@ -114,7 +103,6 @@ def save_test_result_auto(data: dict):
                 execution_time
             ))
             print(f"✅ INSERT ke test_result ID {id_test_result} berhasil.")
-
         # ================= Simpan riwayat (termasuk log_error) =================
         cursor.execute("""
             INSERT INTO test_result_history (
@@ -142,10 +130,8 @@ def save_test_result_auto(data: dict):
             execution_time
         ))
         print("📝 INSERT ke test_result_history berhasil.")
-
         conn.commit()
         print("✅ Semua perubahan berhasil disimpan ke database.")
-
     except Exception as e:
         print(f"❌ ERROR saat menyimpan ke database: {e}")
 
