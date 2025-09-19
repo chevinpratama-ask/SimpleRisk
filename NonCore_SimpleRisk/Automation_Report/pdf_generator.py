@@ -385,15 +385,15 @@ class CustomPDF(FPDF):
         self.set_font("Arial", size=8)
         self.set_fill_color(0, 102, 204)
         self.set_text_color(255, 255, 255)
-        box_width = 8
+        box_width = 10
         box_height = 8
         page_number_text = f"{self.page_no()}"  # agar halaman kedua jadi "1"
         x_position = self.w - self.r_margin - box_width
         y_position = self.get_y()
         self.rect(x_position, y_position, box_width,
-                  box_height)       # Membuat kotak outline
+                  box_height, style="F")       # Membuat kotak outline
         self.set_xy(x_position, y_position)
-        self.cell(box_width, box_height, align='C', fill=True)
+        self.cell(box_width, box_height, align='C', fill=True, border=0)
 
 
 def generate_pdf_report(

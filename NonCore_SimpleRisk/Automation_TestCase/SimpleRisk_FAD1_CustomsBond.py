@@ -363,6 +363,7 @@ def test_TC_03(driver):
             screenshot_rendered=screenshot_rendered,
             screenshot_paths=screenshot_rendered + [screenshot_path_fail],
             actual_result=log_error,
+            expected_result=expected_result,
             failed_step_index=len(test_steps_rendered) - 1,
             summary_data_pdf=summary_data_pdf
         )

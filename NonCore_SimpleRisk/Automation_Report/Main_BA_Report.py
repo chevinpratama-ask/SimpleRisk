@@ -7,6 +7,7 @@ from NonCore_SimpleRisk.Common.TestData import testcase_data
 
 
 logo_path = "logo_askrindo.png"
+output_file = "Laporan_Gabungan_Final.pdf"
 
 
 # ======== PDF Class with Footer =========
@@ -16,40 +17,35 @@ class PDFWithFooter(FPDF):
         self.set_font("Arial", size=8)
         self.set_fill_color(0, 102, 204)
         self.set_text_color(255, 255, 255)
-        box_width = 8
+        box_width = 10
         box_height = 8
-        page_number_text = f"{self.page_no()}"
         x_position = self.w - self.r_margin - box_width
         y_position = self.get_y()
-        self.rect(x_position, y_position, box_width,
-                  box_height)       # Membuat kotak outline
+
+        self.rect(x_position, y_position, box_width, box_height,
+                  style="F")  # Membuat kotak outline
         self.set_xy(x_position, y_position)
-        self.cell(box_width, box_height, align='C', fill=True)
+        self.cell(box_width, box_height, align='C', fill=True, border=0)
 
 
 # ======== File Setup =========
-file1 = os.path.join("TC01_Output_FAD1_Surety_Bond_SimpleRisk", "Laporan_Passed",
-                     "Laporan_Passed_Output_FAD1_Surety_Bond_SimpleRisk_20250919_152855.pdf")  # Ganti dengan path file yang benar
-file2 = os.path.join("TC02_Output_FAD1_Kontra_Bank_Garansi_SimpleRisk", "Laporan_Passed",
-                     "Laporan_Passed_Output_FAD1_Kontra_Bank_Garansi_SimpleRisk_20250919_134317.pdf")
-file3 = os.path.join("TC03_Output_FAD1_Customs_Bond_SimpleRisk", "Laporan_Passed",
-                     "Laporan_Passed_Output_FAD1_Customs_Bond_SimpleRisk_20250919_134325.pdf")
-output_file = "Laporan_Gabungan_Final.pdf"
+files = {
+    "SimpleRisk_FAD1_SuretyBond": os.path.join("TC01_Output_FAD1_Surety_Bond_SimpleRisk", "Laporan_Passed",
+                                               "Laporan_Passed_Output_FAD1_Surety_Bond_SimpleRisk_20250919_160549.pdf"),
+    "SimpleRisk_FAD1_KontraBankGaransi": os.path.join("TC02_Output_FAD1_Kontra_Bank_Garansi_SimpleRisk", "Laporan_Passed",
+                                                      "Laporan_Passed_Output_FAD1_Kontra_Bank_Garansi_SimpleRisk_20250919_161123.pdf"),
+    "SimpleRisk_FAD1_CustomsBond": os.path.join("TC03_Output_FAD1_Customs_Bond_SimpleRisk", "Laporan_Passed",
+                                                "Laporan_Passed_Output_FAD1_Customs_Bond_SimpleRisk_20250919_160933.pdf")
+}
+
 # Validasi file
-for file_path in [file1, file2, file3]:
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File tidak ditemukan: {file_path}")
+for name, path in files.items():
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"File tidak ditemukan: {path}")
 # ======== Hitung Halaman dan Siapkan TOC =========
-reader1 = PdfReader(file1)
-reader2 = PdfReader(file2)
-reader3 = PdfReader(file3)
-total_pages_file1 = len(reader1.pages)
-total_pages_file2 = len(reader2.pages)
-total_pages_file3 = len(reader3.pages)
+readers = {name: PdfReader(path) for name, path in files.items()}
+total_pages = {name: len(reader.pages) for name, reader in readers.items()}
 # Halaman 1: Cover, Halaman 2: Revisi, Halaman 3: TOC
-start_page_file1 = 4  # TC-01 mulai dari halaman ke-4
-start_page_file2 = start_page_file1 + \
-    (total_pages_file1 - 2)  # setelah cover+revisi+TOC
 # ======== Generate TOC PDF =========
 toc = PDFWithFooter()
 toc.add_page()
@@ -109,26 +105,15 @@ def add_toc_entry(pdf, tc_id, title, page_number):
 add_toc_entry(toc, "", "Daftar Revisi", 2)
 add_toc_entry(toc, "", "Daftar Isi", 3)
 add_toc_entry(toc, "", "Dokumen Testing", 4)
-add_toc_entry(
-    toc,
-    testcase_data["SimpleRisk_FAD1_SuretyBond"]["testcase_id_SB"],
-    testcase_data["SimpleRisk_FAD1_SuretyBond"]["testcase_name_SB"],
-    start_page_file1
-)
-
-add_toc_entry(
-    toc,
-    testcase_data["SimpleRisk_FAD1_KontraBankGaransi"]["testcase_id_CB"],
-    testcase_data["SimpleRisk_FAD1_KontraBankGaransi"]["testcase_name_CB"],
-    start_page_file2
-)
-
-add_toc_entry(
-    toc,
-    testcase_data["SimpleRisk_FAD1_CustomsBond"]["testcase_id_SB"],
-    testcase_data["SimpleRisk_FAD1_CustomsBond"]["testcase_name_SB"],
-    start_page_file2 + total_pages_file2  # supaya lanjut setelah file2
-)
+start_page = 4
+for key, path in files.items():
+    data = testcase_data[key]
+    tc_id = data.get("testcase_id_SB") or data.get(
+        "testcase_id_CB") or data["testcase_id"]
+    tc_name = data.get("testcase_name_SB") or data.get(
+        "testcase_name_CB") or data["testcase_name"]
+    add_toc_entry(toc, tc_id, tc_name, start_page)
+    start_page += total_pages[key] - 2  # lewati cover+revisi
 
 
 # Simpan TOC sementara
@@ -138,22 +123,18 @@ toc.output(toc_file)
 # ======== Gabungkan Semua File =========
 merger = PdfMerger()
 # Tambahkan halaman 1–2 dari file1 (Cover + Revisi)
-merger.append(file1, pages=(0, 2))
+first_file = list(files.values())[0]
+merger.append(first_file, pages=(0, 2))   # cover + revisi
 # Halaman 3: TOC
 merger.append(toc_file)
 # Sisanya: Isi Surety Bond
-merger.append(file1, pages=(2, total_pages_file1))
+merger.append(first_file, pages=(2, total_pages["SimpleRisk_FAD1_SuretyBond"]))
 
-# Kontra Bank Garansi
-# Tambahkan isi file2 mulai dari halaman ke-2
-merger.append(file2, pages=(2, len(reader2.pages)))
+# Kontra Bank Garansi & Customs Bond
+# gabung file lainnya (tanpa 2 halaman pertama)
+for key, path in list(files.items())[1:]:
+    merger.append(path, pages=(2, total_pages[key]))
 
-# Customs Bond
-# Tambahkan isi file3 mulai dari halaman ke-2
-merger.append(file3, pages=(2, len(reader3.pages)))
-
-# merger.append(file2)
-# Customs Bond
 # Simpan hasil akhir
 merger.write(output_file)
 merger.close()
